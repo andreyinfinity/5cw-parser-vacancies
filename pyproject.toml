@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "5-cw-parsing-hh"
+version = "0.1.0"
+description = ""
+authors = ["Andrey Potapov <aapot@ya.ru>"]
+readme = "README.md"
+packages = [{include = "5_cw_parsing_hh"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+psycopg2 = "^2.9.9"
+requests = "^2.31.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
