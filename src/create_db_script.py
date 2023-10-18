@@ -1,68 +1,48 @@
 """Скрипт для первоначального создания БД и ее таблиц"""
 import psycopg2
 from psycopg2 import errors
-from config import DB_NAME, DB_PWD
+from config import DB_NAME, config_db
 
 
-tables = [{'name': 'employers',
-           'columns': ["employer_id SERIAL PRIMARY KEY",
-                       "name VARCHAR(50)",
-                       "url VARCHAR"]},
-          {'name': 'vacancies',
-           'columns': ["vacancy_id SERIAL PRIMARY KEY",
-                       "employer_id int REFERENCES employers(employer_id) NOT NULL",
-                       "alternate_url varchar NOT NULL",
-                       "area varchar(20)",
-                       "published_at date NOT NULL",
-                       "employment varchar(100)",
-                       "experience varchar(100)",
-                       "name varchar(100) NOT NULL",
-                       "salary_from int",
-                       "salary_to int",
-                       "requirement varchar",
-                       "responsibility varchar"]}]
-
-
-def create_db():
-    conn = psycopg2.connect(dbname="postgres", user="postgres", password=DB_PWD, host="localhost", port=5432)
+def create_db(db_name: str, params: dict):
+    conn = psycopg2.connect(dbname="postgres", **params)
     cursor = conn.cursor()
     conn.autocommit = True
-    # команда для создания базы данных DB_NAME
-    sql = f"CREATE DATABASE {DB_NAME}"
-    # выполняем код sql
+    sql = f"CREATE DATABASE {db_name}"
     try:
         cursor.execute(sql)
-        print("База данных успешно создана")
+        print(f"База данных {db_name} успешно создана")
     except errors.DuplicateDatabase:
-        print("База данных уже существует")
+        print(f"База данных {db_name} уже существует")
     finally:
         cursor.close()
         conn.close()
 
 
-def create_table(table_name: str, variables: str):
-    conn = psycopg2.connect(dbname=DB_NAME, user="postgres", password=DB_PWD, host="localhost", port=5432)
-    cursor = conn.cursor()
-    # создаем таблицу
+def execute_sql_script(script_file: str, params: dict) -> None:
+    """Выполняет скрипт из файла для создания таблиц и связей в БД."""
     try:
-        cursor.execute(f"CREATE TABLE {table_name} ({variables})")
-        # подтверждаем транзакцию
-        conn.commit()
-        print(f"Таблица {table_name} успешно создана")
-    except errors.DuplicateTable:
-        print(f"Таблица {table_name} уже существует")
+        with psycopg2.connect(**params) as conn:
+            with conn.cursor() as cur:
+                with open(script_file, 'r', encoding='UTF-8') as file:
+                    sql_file = file.read()
+                    cur.execute(sql_file)
+                print(f"БД {db_name} успешно заполнена")
+    except(Exception, psycopg2.DatabaseError) as error:
+        print(error)
     finally:
-        cursor.close()
-        conn.close()
+        if conn is not None:
+            conn.close()
+
+
 
 
 def main():
+    params = config_db()
     # Создание базы данных
-    create_db()
+    create_db(db_name=DB_NAME, params=params)
+    params.update({'dbname': DB_NAME})
     # Создание таблиц
-    for table in tables:
-        variables = ", ".join(table['columns'])
-        create_table(table_name=table['name'], variables=variables)
 
 
 if __name__ == "__main__":
