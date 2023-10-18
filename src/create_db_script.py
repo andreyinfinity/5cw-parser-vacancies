@@ -21,28 +21,28 @@ def create_db(db_name: str, params: dict):
 
 def execute_sql_script(script_file: str, params: dict) -> None:
     """Выполняет скрипт из файла для создания таблиц и связей в БД."""
+    conn = psycopg2.connect(**params)
+    cur = conn.cursor()
     try:
-        with psycopg2.connect(**params) as conn:
-            with conn.cursor() as cur:
-                with open(script_file, 'r', encoding='UTF-8') as file:
-                    sql_file = file.read()
-                    cur.execute(sql_file)
-                print(f"БД {db_name} успешно заполнена")
+        with open(script_file, 'r', encoding='UTF-8') as file:
+            sql_file = file.read()
+            cur.execute(sql_file)
+        print(f"Таблицы в БД {params['db_name']} успешно созданы")
     except(Exception, psycopg2.DatabaseError) as error:
         print(error)
     finally:
-        if conn is not None:
-            conn.close()
-
-
+        cur.close()
+        conn.close()
 
 
 def main():
     params = config_db()
+    script_file = 'create_db.sql'
     # Создание базы данных
     create_db(db_name=DB_NAME, params=params)
     params.update({'dbname': DB_NAME})
     # Создание таблиц
+    execute_sql_script(script_file=script_file, params=params)
 
 
 if __name__ == "__main__":
