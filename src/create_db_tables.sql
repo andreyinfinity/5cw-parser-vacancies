@@ -9,7 +9,7 @@ DROP TABLE IF EXISTS employers;
 
 CREATE TABLE employers(
     employer_id int PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
     url VARCHAR(100)
 );
 
@@ -19,11 +19,11 @@ CREATE TABLE vacancies(
     vacancy_id int PRIMARY KEY,
     employer_id int REFERENCES employers(employer_id) ON DELETE CASCADE NOT NULL,
     alternate_url varchar(100) NOT NULL,
-    area varchar(20),
+    area varchar(50),
     published_date date NOT NULL,
     employment varchar(100),
     experience varchar(100),
-    name varchar(100) NOT NULL,
+    name varchar NOT NULL,
     salary_from int,
     salary_to int,
     requirement varchar,

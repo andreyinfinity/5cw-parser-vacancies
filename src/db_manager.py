@@ -1,44 +1,107 @@
 """Модуль для работы с БД Postgres"""
 import psycopg2
-from config import config_db, DB_NAME
+from config import config_db
 
 
-params = config_db()
-params.update({'dbname': DB_NAME})
+class DBManager:
+    def __init__(self):
+        self.params = config_db()
+        self.conn = None
+        self.cur = None
 
+    def __enter__(self):
+        self.conn = psycopg2.connect(**self.params)
+        self.cursor = self.conn.cursor()
+        return self
 
-def insert_to_db(table_name: str, variables: list[dict], db_parameters: [dict]) -> None:
-    """Подключение к БД и запись данных в таблицу."""
-    ok = 0
-    conn = psycopg2.connect(**db_parameters)
-    cursor = conn.cursor()
-    for var in variables:
-        query, values = build_insert_query(table_name, var)
-        try:
-            cursor.execute(query=query, vars=values)
-            conn.commit()
-            ok += 1
-        except(Exception, psycopg2.DatabaseError) as error:
-            print(error)
-            conn.rollback()
-    cursor.close()
-    conn.close()
-    print(f"Успешно добавлено {ok} из {len(variables)} записей в {table_name}.")
+    def __exit__(self, exception_type, exception_val, trace):
+        self.cursor.close()
+        self.conn.close()
 
+    def get_companies_and_vacancies_count(self) -> list[tuple]:
+        """Метод получает список всех компаний и количество вакансий
+        у каждой компании."""
+        sql = """
+            SELECT employers.name, COUNT(*) FROM employers 
+            JOIN vacancies USING(employer_id)
+            GROUP BY employers.name
+            ORDER BY COUNT(*) DESC
+        """
+        return self.select_from_db(query=sql)
 
-def build_insert_query(table_name: str, variables: dict) -> tuple[str, tuple]:
-    """Формирование строки запроса """
-    values_num = ', '.join(['%s'] * len(variables))
-    column_names = ', '.join(variables.keys())
-    values = tuple(variables.values())
-    query = f"INSERT INTO {table_name} ({column_names}) VALUES({values_num})"
-    return query, values
+    def get_all_vacancies(self) -> list[tuple]:
+        """Метод получает список всех вакансий с указанием названия компании,
+        названия вакансии и зарплаты и ссылки на вакансию."""
+        sql = """
+            SELECT employers.name AS employer, vacancies.name AS vacancy, 
+            (salary_from + salary_to)/2 AS salary, alternate_url AS url 
+            FROM employers
+            JOIN vacancies USING(employer_id)
+            ORDER BY employers.name
+        """
+        return self.select_from_db(query=sql)
+
+    def get_avg_salary(self) -> int:
+        """Метод получает среднюю зарплату по вакансиям."""
+        sql = """
+            SELECT AVG((salary_from + salary_to)/2) AS avg_salary 
+            FROM vacancies
+        """
+        return int(self.select_from_db(query=sql)[0][0])
+
+    def get_vacancies_with_higher_salary(self) -> list[tuple]:
+        """Метод получает список всех вакансий, у которых зарплата выше средней по всем вакансиям."""
+        sql = """
+            SELECT * FROM vacancies
+            WHERE (salary_from + salary_to)/2 > 
+            (SELECT AVG((salary_from + salary_to)/2) FROM vacancies)
+            ORDER BY salary_from
+        """
+        return self.select_from_db(query=sql)
+
+    def get_vacancies_with_keyword(self, word: str) -> list[tuple]:
+        """Метод получает список всех вакансий, в названии или
+        описании которых содержатся переданные в метод слова."""
+        sql = f"""
+            SELECT * FROM vacancies
+            WHERE name ILIKE '%{word}%' or requirement ILIKE '%{word}%'
+        """
+        return self.select_from_db(query=sql)
+
+    def insert_to_db(self, table_name: str, variables: list[dict]) -> None:
+        """Подключение к БД и запись данных в таблицу."""
+        ok = 0
+        for var in variables:
+            query, values = self._build_insert_query(table_name, var)
+            try:
+                self.cursor.execute(query=query, vars=values)
+                self.conn.commit()
+                ok += 1
+            except(Exception, psycopg2.DatabaseError):
+                # print(error)
+                self.conn.rollback()
+        print(f"Успешно добавлено {ok} из {len(variables)} записей в {table_name}.")
+
+    def _build_insert_query(self, table_name: str, variables: dict) -> tuple[str, tuple]:
+        """Формирование строки запроса """
+        values_num = ', '.join(['%s'] * len(variables))
+        column_names = ', '.join(variables.keys())
+        values = tuple(variables.values())
+        query = f"INSERT INTO {table_name} ({column_names}) VALUES({values_num})"
+        return query, values
+
+    def select_from_db(self, query: str) -> list[tuple]:
+        self.cursor.execute(query=query)
+        return self.cursor.fetchall()
 
 
 if __name__ == "__main__":
+    from pprint import pprint
     # Проверка работы модуля
-    out = [{'employer_id': 19, 'name': 'Yandex', 'url': 'http'}, {'employer_id':928,'name':5,'url':6}]
-    insert_to_db('employers', out, params)
+    with DBManager() as db:
+        pprint(db.get_vacancies_with_keyword('python'))
+    # out = [{'employer_id': 19, 'name': 'Yandex', 'url': 'http'}, {'employer_id':928,'name':5,'url':6}]
+    # insert_to_db('employers', out)
 
 #
 # def select_from_db(table_name: str, column_names: tuple):

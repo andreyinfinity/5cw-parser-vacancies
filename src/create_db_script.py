@@ -1,17 +1,20 @@
 """Скрипт для первоначального создания БД и ее таблиц.
 При запуске с уже существующей БД все данные из БД удаляются!"""
 import psycopg2
-from config import DB_NAME, config_db
+from config import config_db
 
 
-def create_db(db_name: str, params: dict):
-    conn = psycopg2.connect(dbname="postgres", **params)
+def create_db(params: dict) -> None:
+    """Создание БД для проекта"""
+    new_db = params.get('dbname')
+    sql_query = f"CREATE DATABASE {new_db}"
+    params.update({'dbname': "postgres"})
+    conn = psycopg2.connect(**params)
     cursor = conn.cursor()
     conn.autocommit = True
-    sql = f"CREATE DATABASE {db_name}"
     try:
-        cursor.execute(sql)
-        print(f"База данных {db_name} успешно создана")
+        cursor.execute(sql_query)
+        print(f"База данных {new_db} успешно создана")
     except(Exception, psycopg2.DatabaseError) as error:
         print(error)
     finally:
@@ -38,11 +41,11 @@ def execute_sql_script(script_file: str, params: dict) -> None:
 
 def main():
     params = config_db()
-    script_file = 'create_db.sql'
     # Создание базы данных
-    create_db(db_name=DB_NAME, params=params)
-    params.update({'dbname': DB_NAME})
+    create_db(params=params)
     # Создание таблиц
+    params = config_db()
+    script_file = 'create_db_tables.sql'
     execute_sql_script(script_file=script_file, params=params)
 
 
